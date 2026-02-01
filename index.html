@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Mini Métro / Tram Simulator</title>
+<style>
+body {
+  font-family: sans-serif;
+  background: #1e1e1e;
+  color: white;
+  text-align: center;
+}
+
+#toolbar {
+  margin: 10px;
+}
+
+button, select {
+  margin: 5px;
+  padding: 6px;
+}
+
+canvas {
+  background: #111;
+  border: 1px solid #555;
+  cursor: crosshair;
+}
+</style>
+</head>
+<body>
+
+<h2>🚇 Mini Simulateur Métro / Tram</h2>
+
+<div id="toolbar">
+  Mode :
+  <select id="mode">
+    <option value="metro">Métro</option>
+    <option value="tram">Tramway</option>
+  </select>
+
+  Matériel roulant :
+  <select id="trainType">
+    <option value="mpl75">MPL75</option>
+    <option value="mpl85">MPL85</option>
+    <option value="mpl16">MPL16</option>
+  </select>
+
+  Vitesse voie :
+  <select id="speed">
+    <option value="1">Lente</option>
+    <option value="2">Moyenne</option>
+    <option value="3">Rapide</option>
+  </select>
+
+  <button onclick="startSimulation()">▶ Lancer</button>
+</div>
+
+<canvas id="map" width="900" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById("map");
+const ctx = canvas.getContext("2d");
+
+let stations = [];
+let tracks = [];
+let trains = [];
+
+let selectedStation = null;
+let simulation = false;
+
+canvas.addEventListener("click", e => {
+  if (simulation) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  const station = stations.find(s => Math.hypot(s.x - x, s.y - y) < 10);
+
+  if (station && selectedStation && station !== selectedStation) {
+    tracks.push({
+      from: selectedStation,
+      to: station,
+      speed: Number(document.getElementById("speed").value)
+    });
+    selectedStation = null;
+  } else if (station) {
+    selectedStation = station;
+  } else {
+    stations.push({ x, y });
+  }
+
+  draw();
+});
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // voies
+  ctx.strokeStyle = "#888";
+  tracks.forEach(t => {
+    ctx.lineWidth = t.speed;
+    ctx.beginPath();
+    ctx.moveTo(t.from.x, t.from.y);
+    ctx.lineTo(t.to.x, t.to.y);
+    ctx.stroke();
+  });
+
+  // stations
+  stations.forEach(s => {
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // trains
+  trains.forEach(t => {
+    ctx.fillStyle = t.color;
+    ctx.fillRect(t.x - 4, t.y - 4, 8, 8);
+  });
+}
+
+function startSimulation() {
+  if (tracks.length === 0) return;
+
+  simulation = true;
+  trains = tracks.map(t => ({
+    track: t,
+    progress: 0,
+    speed: t.speed * 0.002,
+    color: getTrainColor()
+  }));
+
+  requestAnimationFrame(update);
+}
+
+function update() {
+  trains.forEach(t => {
+    t.progress += t.speed;
+    if (t.progress > 1) t.progress = 0;
+
+    t.x = t.track.from.x +
+      (t.track.to.x - t.track.from.x) * t.progress;
+    t.y = t.track.from.y +
+      (t.track.to.y - t.track.from.y) * t.progress;
+  });
+
+  draw();
+  requestAnimationFrame(update);
+}
+
+function getTrainColor() {
+  const type = document.getElementById("trainType").value;
+  if (type === "mpl75") return "orange";
+  if (type === "mpl85") return "lime";
+  return "cyan";
+}
+
+draw();
+</script>
+
+</body>
+</html>
